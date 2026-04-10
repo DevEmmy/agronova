@@ -263,7 +263,7 @@ export default function DashboardPage() {
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9CA3AF", fontWeight: 600 }} unit="kg" />
                     <Tooltip
                       contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)", fontWeight: "bold" }}
-                      formatter={(v: number) => [`${v} kg`, "Avg Weight"]}
+                      formatter={(v) => [`${v} kg`, "Avg Weight"]}
                     />
                     <Area type="monotone" dataKey="avgWeight" stroke="#111" strokeWidth={2.5} fillOpacity={1} fill="url(#weightGrad)" dot={{ r: 3, fill: "#111" }} activeDot={{ r: 5 }} />
                   </AreaChart>

@@ -39,7 +39,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(({ data }) => {
         setUser(data.user);
         const activeFarm = data.farms.find(m => m.farm._id === farmId) || data.farms[0];
-        if (activeFarm) setFarmName(activeFarm.farm.name);
+        if (activeFarm) {
+          setFarmName(activeFarm.farm.name);
+          // Workers and consultants belong in /field, not the management dashboard
+          if (activeFarm.role === "worker" || activeFarm.role === "consultant") {
+            router.replace("/field");
+          }
+        }
       })
       .catch(() => { clearTokens(); router.push("/auth"); });
 

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { UserPlus, Shield, X, Send, Loader2, Users } from "lucide-react";
-import { teamApi, getActiveFarmId, type TeamMember } from "@/lib/api";
+import { UserPlus, Shield, X, Send, Loader2, Users, Copy, Check, RefreshCw, QrCode, Link2, MailCheck } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { teamApi, farmApi, getActiveFarmId, type TeamMember, type Farm } from "@/lib/api";
 
 const stagger: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const fadeUp: Variants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } };
@@ -11,25 +12,68 @@ const fadeUp: Variants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y:
 const ROLE_LABELS: Record<string, string> = { owner: "Owner", manager: "Manager", worker: "Worker / Student", consultant: "Consulting Vet" };
 
 export default function TeamPage() {
-  const [members, setMembers]         = useState<TeamMember[]>([]);
-  const [isLoading, setIsLoading]     = useState(true);
+  const [members, setMembers]       = useState<TeamMember[]>([]);
+  const [farm, setFarm]             = useState<Farm | null>(null);
+  const [isLoading, setIsLoading]   = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [showQr, setShowQr]         = useState(false);
+  const [copied, setCopied]         = useState<"code" | "link" | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const farmId = getActiveFarmId();
 
-  const [inv, setInv] = useState({ email: "", role: "worker" });
+  const [inv, setInv]   = useState({ email: "", role: "worker" });
   const [invBusy, setInvBusy] = useState(false);
-  const [invErr,  setInvErr]  = useState("");
-  const [invOk,   setInvOk]   = useState(false);
+  const [invErr, setInvErr]   = useState("");
+  const [invOk, setInvOk]     = useState(false);
+  const [resending, setResending] = useState<string | null>(null); // memberId being resent
+  const [resendOk, setResendOk]   = useState<string | null>(null); // memberId success flash
+
+  const joinUrl = farm
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/onboarding?code=${farm.inviteCode}`
+    : "";
 
   const load = async () => {
     if (!farmId) return;
-    try { const r = await teamApi.getAll(farmId); setMembers(r.data || []); }
-    catch {}
+    try {
+      const [teamRes, farmRes] = await Promise.all([
+        teamApi.getAll(farmId),
+        farmApi.get(farmId),
+      ]);
+      setMembers(teamRes.data || []);
+      setFarm(farmRes.data);
+    } catch {}
     finally { setIsLoading(false); }
   };
   useEffect(() => { load(); }, [farmId]);
 
-  const submitInvite = async (e: React.FormEvent) => {
+  const copyToClipboard = async (text: string, type: "code" | "link") => {
+    await navigator.clipboard.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleRegenerate = async () => {
+    if (!farmId || !confirm("Regenerate the join code? The old code will stop working.")) return;
+    setRegenerating(true);
+    try {
+      const res = await farmApi.regenerateInviteCode(farmId);
+      setFarm(f => f ? { ...f, inviteCode: res.data.inviteCode } : f);
+    } catch {}
+    finally { setRegenerating(false); }
+  };
+
+  const handleResend = async (memberId: string, email: string, role: string) => {
+    if (!farmId) return;
+    setResending(memberId);
+    try {
+      await teamApi.invite(farmId, email, role);
+      setResendOk(memberId);
+      setTimeout(() => setResendOk(null), 2500);
+    } catch {}
+    finally { setResending(null); }
+  };
+
+  const submitInvite = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!farmId) return;
     setInvBusy(true); setInvErr("");
@@ -37,7 +81,7 @@ export default function TeamPage() {
       await teamApi.invite(farmId, inv.email, inv.role);
       setInvOk(true);
       await load();
-      setTimeout(() => { setIsInviteOpen(false); setInvOk(false); setInv({ email: "", role: "worker" }); }, 2000);
+      setTimeout(() => { setIsInviteOpen(false); setInvOk(false); setInv({ email: "", role: "worker" }); }, 3000);
     } catch (err) { setInvErr(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setInvBusy(false); }
   };
@@ -55,16 +99,106 @@ export default function TeamPage() {
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="p-5 lg:px-8 lg:py-6 space-y-6">
+
+        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Team Members</h1>
-            <p className="text-gray-500 font-medium mt-1">Manage farm access logic and role-based permissions.</p>
+            <p className="text-gray-500 font-medium mt-1">Manage farm access and role-based permissions.</p>
           </div>
           <button onClick={() => setIsInviteOpen(true)} className="bg-black text-white px-3.5 py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center gap-2">
             <UserPlus className="w-4 h-4" /> Invite Member
           </button>
         </div>
 
+        {/* Join Code Card */}
+        {farm && (
+          <motion.div variants={fadeUp} className="bg-white border border-gray-200 rounded-3xl p-6">
+            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+              {/* QR toggle */}
+              <button
+                onClick={() => setShowQr(v => !v)}
+                className="flex-shrink-0 w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-black transition-colors group"
+              >
+                <QrCode className="w-7 h-7 text-gray-400 group-hover:text-black transition-colors" />
+                <span className="text-xs font-bold text-gray-400 group-hover:text-black transition-colors">{showQr ? "Hide" : "QR"}</span>
+              </button>
+
+              <div className="flex-1 space-y-3 min-w-0">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Farm Join Code</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl font-black tracking-[0.2em] text-black">{farm.inviteCode}</span>
+                    <button
+                      onClick={() => copyToClipboard(farm.inviteCode, "code")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-bold transition-colors"
+                    >
+                      {copied === "code" ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Code</>}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <p className="text-xs text-gray-400 font-medium truncate">{joinUrl}</p>
+                  <button
+                    onClick={() => copyToClipboard(joinUrl, "link")}
+                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 bg-gray-50 border border-gray-200 hover:border-black rounded-lg text-xs font-bold transition-colors"
+                  >
+                    {copied === "link" ? <><Check className="w-3 h-3 text-emerald-500" /> Copied</> : <><Copy className="w-3 h-3" /> Link</>}
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-400 font-medium">
+                  Share this code or link with workers. They enter it on the onboarding screen.
+                </p>
+              </div>
+
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border border-gray-200 hover:border-red-300 hover:text-red-500 rounded-xl text-xs font-bold text-gray-500 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? "animate-spin" : ""}`} />
+                Regenerate
+              </button>
+            </div>
+
+            {/* QR Code panel */}
+            <AnimatePresence>
+              {showQr && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center gap-6">
+                    <div className="p-4 bg-white border-2 border-gray-900 rounded-2xl">
+                      <QRCodeSVG
+                        value={joinUrl}
+                        size={160}
+                        bgColor="#ffffff"
+                        fgColor="#000000"
+                        level="M"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <div className="text-center sm:text-left space-y-2">
+                      <p className="font-bold text-gray-900">Scan to Join</p>
+                      <p className="text-sm text-gray-500 font-medium max-w-xs">
+                        Workers can scan this QR code with their phone camera to go directly to the join screen.
+                      </p>
+                      <p className="text-xs text-gray-400 font-mono bg-gray-50 rounded-lg px-3 py-1.5 inline-block">{farm.inviteCode}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* Team list */}
         {isLoading ? (
           <div className="flex items-center justify-center h-48 gap-3 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /> Loading team...</div>
         ) : members.length === 0 ? (
@@ -99,6 +233,21 @@ export default function TeamPage() {
                     {u?.lastLoginAt && (
                       <p className="text-xs text-gray-400 font-medium">Last active: {new Date(u.lastLoginAt).toLocaleDateString()}</p>
                     )}
+                    {m.status === "pending" && (
+                      <button
+                        onClick={() => handleResend(m._id, m.inviteEmail, m.role)}
+                        disabled={resending === m._id}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-amber-200 bg-amber-50 hover:border-amber-400 hover:bg-amber-100 rounded-xl text-xs font-bold text-amber-600 transition-colors disabled:opacity-50"
+                      >
+                        {resendOk === m._id ? (
+                          <><Check className="w-3.5 h-3.5 text-emerald-500" /><span className="text-emerald-600">Invite Resent!</span></>
+                        ) : resending === m._id ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Resending...</>
+                        ) : (
+                          <><MailCheck className="w-3.5 h-3.5" /> Resend Invite</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -107,6 +256,7 @@ export default function TeamPage() {
         )}
       </motion.div>
 
+      {/* Invite Modal */}
       <AnimatePresence>
         {isInviteOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -117,13 +267,19 @@ export default function TeamPage() {
                 <div className="text-center space-y-4 py-4">
                   <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-2xl">✓</div>
                   <h2 className="text-xl font-bold">Invitation Sent!</h2>
-                  <p className="text-gray-500 text-sm">An email has been sent to <strong>{inv.email}</strong> with instructions to join your farm.</p>
+                  <p className="text-gray-500 text-sm">
+                    An email with a magic join link has been sent to <strong>{inv.email}</strong>.
+                  </p>
+                  <div className="bg-gray-50 rounded-xl p-3 space-y-1">
+                    <p className="text-xs font-bold text-gray-500">Or share the join code directly:</p>
+                    <p className="text-2xl font-black tracking-widest text-black">{farm?.inviteCode}</p>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={submitInvite} className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-bold tracking-tight">Invite Member</h2>
-                    <p className="text-gray-500 font-medium text-sm mt-1">Send an invitation to a student, worker, or consulting vet.</p>
+                    <p className="text-gray-500 font-medium text-sm mt-1">Send a magic link invite, or share the join code above.</p>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -141,7 +297,7 @@ export default function TeamPage() {
                   </div>
                   {invErr && <p className="text-sm text-red-500 font-medium">{invErr}</p>}
                   <button type="submit" disabled={invBusy} className="w-full bg-black text-white font-bold py-3.5 rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                    {invBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</> : <><Send className="w-4 h-4" /> Send Invitation</>}
+                    {invBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</> : <><Send className="w-4 h-4" /> Send Magic Link</>}
                   </button>
                 </form>
               )}

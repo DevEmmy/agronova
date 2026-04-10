@@ -101,6 +101,12 @@ export const authApi = {
       { method: 'POST', body: JSON.stringify({ token, email }), skipAuth: true }
     ),
 
+  acceptInvite: (token: string, email: string, name?: string) =>
+    apiFetch<{ data: { accessToken: string; refreshToken: string; user: User; farm: Farm; role: string } }>(
+      '/auth/accept-invite',
+      { method: 'POST', body: JSON.stringify({ token, email, name }), skipAuth: true }
+    ),
+
   getMe: () => apiFetch<{ data: { user: User; farms: FarmMembership[] } }>('/auth/me'),
 
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),

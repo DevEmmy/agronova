@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Sprout, Users, Stethoscope, ArrowLeft, QrCode, Search, ChevronRight, CheckCircle2, Building, Notebook, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +28,7 @@ const itemVariant: Variants = {
 
 export default function OnboardingFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [role, setRole] = useState<Role>(null);
 
@@ -38,12 +40,22 @@ export default function OnboardingFlow() {
   const [isBusy, setIsBusy]             = useState(false);
   const [error, setError]               = useState("");
 
+  // Auto-fill join code from ?code= query param (from QR/share link)
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) {
+      setInviteCode(code.toUpperCase());
+      setRole("worker");
+      setStep(2);
+    }
+  }, [searchParams]);
+
   const handleRoleSelect = (selectedRole: Role) => {
     setRole(selectedRole);
     setStep(2);
   };
 
-  const handleFinalSubmit = async (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(""); setIsBusy(true);
     try {

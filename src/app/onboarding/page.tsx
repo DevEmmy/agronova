@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Sprout, Users, Stethoscope, ArrowLeft, QrCode, Search, ChevronRight, CheckCircle2, Building, Notebook, Loader2 } from "lucide-react";
@@ -26,7 +26,7 @@ const itemVariant: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
 };
 
-export default function OnboardingFlow() {
+function OnboardingFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -346,5 +346,17 @@ export default function OnboardingFlow() {
         </AnimatePresence>
       </main>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#fcfcfc] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+      </div>
+    }>
+      <OnboardingFlow />
+    </Suspense>
   );
 }

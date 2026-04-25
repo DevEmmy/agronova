@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { authApi, setTokens, setActiveFarmId } from "@/lib/api";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -18,8 +18,6 @@ export default function VerifyPage() {
     const type = searchParams.get("type");
 
     if (type === "google" && token) {
-      // Google OAuth: token IS the access token
-      // We need to fetch the user info
       localStorage.setItem("agriflow_token", token);
       authApi.getMe()
         .then(({ data }) => {
@@ -107,5 +105,19 @@ export default function VerifyPage() {
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+        </div>
+      }
+    >
+      <VerifyContent />
+    </Suspense>
   );
 }

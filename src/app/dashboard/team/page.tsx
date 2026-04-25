@@ -56,7 +56,7 @@ export default function TeamPage() {
     if (!farmId || !confirm("Regenerate the join code? The old code will stop working.")) return;
     setRegenerating(true);
     try {
-      const res = await farmApi.regenerateInviteCode(farmId);
+      const res = await farmApi.regenerateCode(farmId);
       setFarm(f => f ? { ...f, inviteCode: res.data.inviteCode } : f);
     } catch {}
     finally { setRegenerating(false); }

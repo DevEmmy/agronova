@@ -285,7 +285,7 @@ export default function DashboardPage() {
                   <div className="h-[180px] relative flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <RadialBarChart innerRadius="55%" outerRadius="100%" barSize={10} data={healthData} startAngle={180} endAngle={0}>
-                        <RadialBar background clockWise dataKey="value" cornerRadius={8} />
+                        <RadialBar background dataKey="value" cornerRadius={8} />
                       </RadialBarChart>
                     </ResponsiveContainer>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-2 text-center pointer-events-none">

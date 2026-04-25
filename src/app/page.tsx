@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowUpRight, Play } from "lucide-react";
 import { motion, useInView, useMotionValue, useTransform, animate } from "framer-motion";
 import { useEffect, useRef } from "react";
@@ -67,9 +68,9 @@ export default function LandingPage() {
           <a href="#dashboard" className="hover:text-black transition-colors">Dashboard</a>
           <a href="#about" className="hover:text-black transition-colors">About Us</a>
         </div>
-        <button className="hidden md:block px-6 py-2.5 rounded-full border border-gray-200 text-sm font-medium hover:bg-black hover:text-white transition-all">
+        <Link href="/auth" className="hidden md:block px-6 py-2.5 rounded-full border border-gray-200 text-sm font-medium hover:bg-black hover:text-white transition-all">
           Get Access
-        </button>
+        </Link>
       </motion.nav>
 
       {/* Hero Section */}
@@ -93,6 +94,14 @@ export default function LandingPage() {
                 {tag}
               </span>
             ))}
+          </motion.div>
+          <motion.div variants={fadeUp} className="flex items-center gap-4 pt-4">
+            <Link href="/auth" className="inline-flex items-center gap-2 bg-black text-white px-7 py-3.5 rounded-full font-semibold text-sm hover:bg-gray-800 transition-colors">
+              Go to Dashboard <ArrowUpRight className="w-4 h-4" />
+            </Link>
+            <Link href="/auth" className="inline-flex items-center gap-2 border border-gray-200 text-[#111] px-7 py-3.5 rounded-full font-semibold text-sm hover:border-black transition-colors">
+              Sign In
+            </Link>
           </motion.div>
         </motion.div>
         
@@ -354,9 +363,11 @@ export default function LandingPage() {
             <motion.h2 variants={fadeUp} className="text-4xl md:text-6xl font-medium tracking-tight leading-tight">
               Let's Connect <br/> There
             </motion.h2>
-            <motion.button variants={fadeUp} className="px-8 py-4 rounded-full bg-white/5 border border-white/10 font-medium hover:bg-white hover:text-black transition-colors flex items-center gap-3">
-               Get in touch <ArrowUpRight className="w-5 h-5" />
-            </motion.button>
+            <motion.div variants={fadeUp}>
+              <Link href="/auth" className="px-8 py-4 rounded-full bg-white/5 border border-white/10 font-medium hover:bg-white hover:text-black transition-colors flex items-center gap-3">
+                Get Started <ArrowUpRight className="w-5 h-5" />
+              </Link>
+            </motion.div>
           </div>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-12 text-sm text-gray-400 font-medium pb-24 border-b border-white/10">
